@@ -1,8 +1,9 @@
-module anatolyi0311/bot-messenger
+module github.com/anatolyi0311/bot-messenger
 
 go 1.26.1
 
 require (
+	github.com/lib/pq v1.12.1
 	github.com/sirupsen/logrus v1.6.0
 	gopkg.in/telebot.v3 v3.3.8
 )

@@ -1,10 +1,11 @@
 package bot
 
 import (
-	"anatolyi0311/bot-messenger/internal/config"
 	"time"
 
 	tb "gopkg.in/telebot.v3"
+
+	"github.com/anatolyi0311/bot-messenger/internal/config"
 )
 
 func Bot(cfg *config.Config) {
