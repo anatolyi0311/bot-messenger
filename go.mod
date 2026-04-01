@@ -3,6 +3,7 @@ module github.com/anatolyi0311/bot-messenger
 go 1.26.1
 
 require (
+	github.com/google/uuid v1.1.2
 	github.com/lib/pq v1.12.1
 	github.com/sirupsen/logrus v1.6.0
 	gopkg.in/telebot.v3 v3.3.8
