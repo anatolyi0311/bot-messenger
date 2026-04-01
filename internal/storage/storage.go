@@ -4,7 +4,6 @@ package storage
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 
 	"github.com/anatolyi0311/bot-messenger/internal/models"
 )
@@ -19,7 +18,8 @@ func New(db *sql.DB) *Storage {
 	return &Storage{db: db}
 }
 
-// SaveIncomingVoice - это метод, который сохраняет входящее голосовое сообщение в базе данных и возвращает его идентификатор (voiceID) для дальнейшей обработки.
+// SaveIncomingVoice - это метод, который сохраняет входящее голосовое сообщение в базе данных и
+// возвращает его идентификатор (voiceID) для дальнейшей обработки.
 func (s *Storage) SaveIncomingVoice(voiceBytes []byte, chatID int64) (int, error) {
 	var voiceID int
 	err := s.db.QueryRow(`
@@ -30,8 +30,10 @@ func (s *Storage) SaveIncomingVoice(voiceBytes []byte, chatID int64) (int, error
 	return voiceID, err
 }
 
-// GetVoiceForUpload - это метод, который извлекает из базы данных список голосовых сообщений, которые находятся на этапе "BEGIN" и готовы для загрузки в Salute для распознавания речи.
+// GetVoiceForUpload - это метод, который извлекает из базы данных список голосовых сообщений,
+// которые находятся на этапе "BEGIN" и готовы для загрузки в Salute для распознавания речи.
 func (s *Storage) GetVoiceForUpload() ([]models.UploadData, error) {
+	// Выполнение SQL-запроса для получения голосовых сообщений, которые находятся на этапе "BEGIN" и готовы для загрузки в Salute для распознавания речи.
 	rows, err := s.db.Query(`
 		SELECT id, chat_id, voice_data
 		FROM voice_recognize
@@ -44,6 +46,7 @@ func (s *Storage) GetVoiceForUpload() ([]models.UploadData, error) {
 
 	var uploadDataList []models.UploadData
 
+	// Проход по результатам запроса и заполнение списка uploadDataList данными для загрузки в Salute для распознавания речи.
 	for rows.Next() {
 		var uploadData models.UploadData
 		err := rows.Scan(&uploadData.VoiceID, &uploadData.ChatID, &uploadData.VoiceData)
@@ -62,35 +65,35 @@ func (s *Storage) GetVoiceForUpload() ([]models.UploadData, error) {
 	return uploadDataList, nil
 }
 
-// SetStatusFail - это метод, который обновляет статус обработки голосового сообщения в базе данных на "FAIL" для заданного идентификатора голосового сообщения (voiceID).
-func (s *Storage) SetStatusFail(voiceID int64) error {
-	result, err := s.db.Exec(`
-		UPDATE voice_recognize
-		SET process_step = $2
-		WHERE id = $1
-	`, voiceID, "FAIL")
-
+// GetVoiceForRecognize - это метод, который извлекает из базы данных список голосовых сообщений,
+// которые находятся на этапе "UPLOAD" и готовы для распознавания речи с помощью Salute.
+func (s *Storage) GetVoiceForRecognize() ([]models.RecognizeData, error) {
+	// Выполнение SQL-запроса для получения голосовых сообщений, которые находятся на этапе "UPLOAD" и готовы для распознавания речи с помощью Salute.
+	rows, err := s.db.Query(`
+		SELECT id, chat_id, request_file_id
+		FROM voice_recognize
+		WHERE process_step = $1
+	`, "UPLOAD")
 	if err != nil {
-		return err
+		return nil, err
+	}
+	defer rows.Close()
+
+	var recognizeDataList []models.RecognizeData
+
+	// Проход по результатам запроса и заполнение списка recognizeDataList данными для распознавания речи.
+	for rows.Next() {
+		var recognizeData models.RecognizeData
+		err := rows.Scan(&recognizeData.VoiceID, &recognizeData.ChatID, &recognizeData.ReqFileID)
+		if err != nil {
+			return nil, err
+		}
+		recognizeDataList = append(recognizeDataList, recognizeData)
 	}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return err
+	if err = rows.Err(); err != nil {
+		return nil, err
 	}
 
-	if rowsAffected == 0 {
-		return fmt.Errorf("storage.SetStatusFail(): rows affected = 0 for voice: %d", voiceID)
-	}
-	return nil
-}
-
-// SetStatusUpload - это метод, который обновляет статус обработки голосового сообщения в базе данных на "UPLOAD" и сохраняет идентификатор файла запроса (reqFileID) для заданного идентификатора голосового сообщения (voiceID).
-func (s *Storage) SetStatusUpload(voiceID int64, reqFileID string) error {
-	_, err := s.db.Exec(`
-		UPDATE voice_recognize 
-		SET process_step = $2, request_file_id = $3
-		WHERE id = $1
-	`, voiceID, "UPLOAD", reqFileID)
-	return err
+	return recognizeDataList, nil
 }

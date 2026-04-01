@@ -3,6 +3,8 @@ package bot
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"log"
 	"time"
 
@@ -50,6 +52,8 @@ func New(cfg *config.Config, storage *storage.Storage) *Bot {
 
 func (b *Bot) Route() {
 	b.bot.Handle("/start", b.startHandler)
+	b.bot.Handle(tb.OnVoice, b.voiceHandler)
+	logrus.Info("Handlers registered")
 }
 
 // Start - это метод, который запускает бота и обрабатывает входящие сообщения от пользователей.
@@ -60,9 +64,12 @@ func (b *Bot) Start(ctx context.Context) {
 		for {
 			select {
 			case <-ctx.Done():
+				// Получение сигнала завершения работы и корректное завершение горутины для обработки сообщений от сервиса.
 				logrus.Info("TeleBot: received shutdown signal, stopping...")
 				return
 			case m := <-b.worker.MessageChannel:
+				// Получение сообщения от сервиса и отправка его пользователю через телеграм-бота.
+				logrus.Infof("TeleBot: sending message to chat ID %d: %s", m.ChatID, m.Message)
 				b.bot.Send(&tb.Chat{ID: m.ChatID}, m.Message)
 			}
 		}
@@ -88,9 +95,45 @@ func (b *Bot) Stop() {
 // RunWorker - это метод, который запускает сервис Worker для обработки сообщений от пользователей и взаимодействия с внешними сервисами.
 // Он принимает контекст для управления жизненным циклом Worker и обеспечивает его корректное завершение при получении сигнала остановки.
 func (b *Bot) RunWorker(ctx context.Context) {
+	logrus.Info("Starting Worker...")
 	go b.worker.Run(ctx)
 }
 
 func (b *Bot) startHandler(c tb.Context) error {
 	return c.Send("Hello world! now:" + time.Now().Format("2006-01-02 15:04:05"))
+}
+
+// voiceHandler - это метод, который обрабатывает входящие голосовые сообщения от пользователей, 
+// сохраняет их в базе данных и отправляет подтверждение пользователю.
+func (b *Bot) voiceHandler(c tb.Context) error {
+	// Получение голосового сообщения от пользователя и сохранение его в базе данных с помощью сервиса Worker.
+	msg := c.Message().Voice
+
+	// Получение файла голосового сообщения от Telegram API с помощью метода File() и сохранение его в переменной file. 
+	// Если при получении файла возникает ошибка, то пользователю отправляется сообщение об ошибке, 
+	// а также логируется ошибка для дальнейшего анализа и устранения проблемы.
+	file, err := b.bot.File(&tb.File{FileID: msg.FileID})
+	if err != nil {
+		logrus.Error(err)
+		return c.Send("Error retrieving voice file")
+	}
+	// Чтение данных голосового сообщения из файла, полученного от Telegram API, и сохранение его в базе данных с помощью сервиса Worker. 
+	// Если при чтении файла или сохранении данных возникает ошибка, то пользователю отправляется сообщение об ошибке, 
+	// а также логируется ошибка для дальнейшего анализа и устранения проблемы.
+	voiceBytes, err := io.ReadAll(file)
+	if err != nil {
+		logrus.Error(err)
+		return c.Send("Error reading voice file")
+	}
+	logrus.Infof("Received voice message from chat Username: %s", c.Chat().Username)
+	// Сохранение данных голосового сообщения в базе данных с помощью сервиса Worker. 
+	// Если при сохранении данных возникает ошибка, то пользователю отправляется сообщение об ошибке, 
+	// а также логируется ошибка для дальнейшего анализа и устранения проблемы.
+	id, err := b.worker.SaveIncomingVoice(voiceBytes, c.Chat().ID)
+	if err != nil {
+		logrus.Error(err)
+		return c.Send("Error saving voice file")
+	}
+
+	return c.Send(fmt.Sprintf("Voice file saved successfully with ID: %d", id))
 }

@@ -3,10 +3,8 @@
 package service
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -77,21 +75,27 @@ func (w *Worker) Run(ctx context.Context) {
 			logrus.Info("Worker: received shutdown signal, stopping...")
 			return
 		case <-ticker.C:
+			logrus.Info("Worker: ticker ticked, starting upload process...")
 			// Выполнение функции upload() при каждом срабатывании таймера, которая обрабатывает голосовые сообщения, готовые для загрузки в Salute для распознавания речи.
 			w.upload()
+			logrus.Info("Worker: upload process completed, starting recognize process...")
+			// Выполнение функции recognize() после завершения upload(), которая обрабатывает голосовые сообщения, готовые для распознавания речи, и взаимодействует с Salute для получения результатов распознавания.
+			w.recognize()
+			logrus.Info("Worker: recognize process completed")
 		}
 	}
 }
 
 // upload - это метод, который извлекает из базы данных список голосовых сообщений, которые находятся на этапе "BEGIN" и готовы для загрузки в Salute для распознавания речи. Для каждого такого сообщения он выполняет загрузку в Salute и обновляет статус обработки в базе данных, а также отправляет пользователю сообщение об успешной загрузке или ошибке при обработке голосового сообщения.
 func (w *Worker) upload() {
+	logrus.Info("Worker.upload: starting upload process...")
 	uploadData, err := w.storage.GetVoiceForUpload()
 	if err != nil {
 		if errors.Is(err, errors.New("no voices for upload")) {
 			logrus.Warn(err)
 			return
 		}
-		logrus.Error(fmt.Errorf("Worker.upload(): %w", err))
+		logrus.Error(fmt.Errorf("Worker.upload: %w", err))
 		return
 	}
 
@@ -103,7 +107,7 @@ func (w *Worker) upload() {
 			go w.sendMsgFail(uploadData[i].ChatID, uploadData[i].VoiceID)
 
 			if err = w.storage.SetStatusFail(uploadData[i].VoiceID); err != nil {
-				logrus.Error(fmt.Errorf("Worker.upload(): %w", err))
+				logrus.Error(fmt.Errorf("Worker.upload: %w", err))
 			}
 			continue
 		}
@@ -114,37 +118,6 @@ func (w *Worker) upload() {
 			logrus.Infof("success upload: %d, %d", uploadData[i].VoiceID, uploadData[i].ChatID)
 		}
 	}
-}
-
-// getTokenSalute - это метод, который получает токен доступа для API Salute.
-func (w *Worker) uploadExecute(upload models.UploadData) (string, error) {
-	w.getTokenSalute()
-
-	reqBody := bytes.NewReader(upload.VoiceData)
-
-	req, err := http.NewRequest("POST", "https://smartspeech.sber.ru/rest/v1/data:upload", reqBody)
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Authorization", "Bearer "+w.authSalute.AccessToken)
-	req.Header.Set("Content-Type", "audio/ogg")
-
-	resp, err := w.client.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("updload handler return status %d", resp.StatusCode)
-	}
-
-	response := models.UploadResponse{}
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		return "", err
-	}
-
-	return response.Result.RequestFileID, nil
 }
 
 // getTokenGigaChat - это метод, который получает токен доступа для API GigaChat и сохраняет его в структуре Auth для дальнейшего использования при взаимодействии с API GigaChat.
@@ -160,5 +133,33 @@ func (w *Worker) sendMsgFail(chatID, voiceID int64) {
 	w.MessageChannel <- models.UserMessage{
 		ChatID:  chatID,
 		Message: fmt.Sprintf(string("Couldn't process the appointment. ID: %d. Repeat sending."), voiceID),
+	}
+}
+
+func (w *Worker) recognize() {
+	recognizeData, err := w.storage.GetVoiceForRecognize()
+	if err != nil {
+		logrus.Error(fmt.Errorf("Worker.recognize(): %w", err))
+		return
+	}
+
+	for i := range recognizeData {
+		recognizeID, err := w.recognizeExecute(recognizeData[i])
+		if err != nil {
+			logrus.Error(err)
+
+			go w.sendMsgFail(recognizeData[i].ChatID, recognizeData[i].VoiceID)
+
+			if err = w.storage.SetStatusFail(recognizeData[i].VoiceID); err != nil {
+				logrus.Error(fmt.Errorf("Worker.recognize(): %w", err))
+			}
+			continue
+		}
+		err = w.storage.SetStatusRecognition(recognizeData[i].VoiceID, recognizeID)
+		if err != nil {
+			logrus.Error(err)
+		} else {
+			logrus.Infof("success recognize: %d", recognizeData[i].VoiceID)
+		}
 	}
 }
