@@ -11,6 +11,10 @@ type BotConfig struct {
 	Token string `json:"token"`
 }
 
+type SberURL struct {
+	URL string `json:"url"`
+}
+
 type SaluteSpeech struct {
 	ClientSecret string `json:"client_secret"`
 	ClientID     string `json:"client_id"`
@@ -33,6 +37,7 @@ type PostgresConfig struct {
 type Config struct {
 	Bot            BotConfig      `json:"bot"`
 	Postgres       PostgresConfig `json:"postgres"`
+	SberURL        SberURL        `json:"sber_devices"`
 	Salute         SaluteSpeech   `json:"salute_speech"`
 	GigaChat       GigaChat       `json:"giga_chat"`
 	IntervalTicker int            `json:"interval_ticker"`

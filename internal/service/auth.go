@@ -28,7 +28,7 @@ func (w *Worker) getTokenSalute() {
 	reqBody := strings.NewReader(body)
 
 	// Создание HTTP-запроса для получения токена доступа к API Salute. Запрос отправляется на эндпоинт OAuth сервера Salute.
-	req, err := http.NewRequest("POST", "https://ngw.devices.sberbank.ru:9443/api/v2/oauth", reqBody)
+	req, err := http.NewRequest("POST", w.cfg.SberURL.URL, reqBody)
 	if err != nil {
 		logrus.Error("Worker.getTokenSalute(): ", err)
 		return
@@ -94,7 +94,7 @@ func (w *Worker) getTokenGigaChat() {
 	body := []byte("scope=GIGACHAT_API_PERS")
 
 	// Создание HTTP-запроса для получения токена доступа к API GigaChat. Запрос отправляется на эндпоинт OAuth сервера GigaChat.
-	req, err := http.NewRequest("POST", "https://ngw.devices.sberbank.ru:9443/api/v2/oauth", bytes.NewBuffer(body))
+	req, err := http.NewRequest("POST", w.cfg.SberURL.URL, bytes.NewBuffer(body))
 	if err != nil {
 		logrus.Error("Worker.getTokenGigaChat(): ", err)
 		return

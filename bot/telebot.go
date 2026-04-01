@@ -30,8 +30,8 @@ func New(cfg *config.Config, storage *storage.Storage) *Bot {
 		Poller: &tb.LongPoller{Timeout: 3 * time.Second},
 	}
 
-	// Инициализация телеграм-бота с заданными настройками, включая токен и параметры опроса для получения обновлений от Telegram API. 
-	// Если инициализация прошла успешно, то возвращается новый экземпляр Bot, 
+	// Инициализация телеграм-бота с заданными настройками, включая токен и параметры опроса для получения обновлений от Telegram API.
+	// Если инициализация прошла успешно, то возвращается новый экземпляр Bot,
 	// который готов к использованию для обработки сообщений от пользователей и взаимодействия с внешними сервисами через сервис Worker.
 	bot, err := tb.NewBot(settings)
 	if err != nil {
@@ -53,7 +53,7 @@ func New(cfg *config.Config, storage *storage.Storage) *Bot {
 func (b *Bot) Start(ctx context.Context) {
 	// Обработчик команды /start, который отправляет пользователю приветственное сообщение.
 	b.bot.Handle("/start", func(c tb.Context) error {
-		return c.Send("Hello world!")
+		return c.Send("Hello world! now:" + time.Now().Format("2006-01-02 15:04:05"))
 	})
 
 	// Запуск горутины для обработки сообщений от сервиса и отправки их пользователям.

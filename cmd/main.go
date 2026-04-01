@@ -53,7 +53,7 @@ func main() {
 
 	// Ожидание сигнала для graceful shutdown
 	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	<-quit
 	logrus.Info("Shutting down gracefully...")
 
