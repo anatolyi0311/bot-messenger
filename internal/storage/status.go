@@ -1,7 +1,10 @@
 // Package storage - это пакет, который содержит методы для обновления статуса обработки голосовых сообщений в базе данных.
 package storage
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 // SetStatusRecognition - это метод, который обновляет статус обработки голосового сообщения
 // в базе данных на "RECOGNITION" и сохраняет идентификатор распознавания (recognizeID)
@@ -69,8 +72,17 @@ func (s *Storage) SetStatusWait(voiceID int64, respFileID string) error {
 func (s *Storage) SetStatusDownload(voiceID int64, text string) error {
 	_, err := s.db.Exec(`
 		UPDATE voice_recognize 
-		SET process_step = $2, response_text = $3
+		SET process_step = $2, transcription = $3
 		WHERE id = $1
 	`, voiceID, "DOWNLOAD", text)
+	return err
+}
+
+func (s *Storage) SetStatusSuccess(voiceID int64, summary string) error {
+	_, err := s.db.Exec(`
+		UPDATE voice_recognize
+		SET process_step = $2, summary = $3, created_at = $4
+		WHERE id = $1
+	`, voiceID, "SUCCESS", summary, time.Now())
 	return err
 }

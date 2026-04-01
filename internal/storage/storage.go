@@ -126,3 +126,74 @@ func (s *Storage) GetVoiceForCheckStatus() ([]models.CheckStatusData, error) {
 
 	return checkStatusList, nil
 }
+
+func (s *Storage) GetVoiceForDownloadTranscription() ([]models.DownloadTranscriptionData, error) {
+	rows, err := s.db.Query(`
+		SELECT id, chat_id, response_file_id
+		FROM voice_recognize
+		WHERE process_step = $1
+	`, "WAIT")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var downloadTranscriptionList []models.DownloadTranscriptionData
+
+	for rows.Next() {
+		var downloadTranscription models.DownloadTranscriptionData
+		err := rows.Scan(&downloadTranscription.VoiceID, &downloadTranscription.ChatID, &downloadTranscription.RespFileID)
+		if err != nil {
+			return nil, err
+		}
+		downloadTranscriptionList = append(downloadTranscriptionList, downloadTranscription)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return downloadTranscriptionList, nil
+}
+
+func (s *Storage) GetVoiceForCreateSummary() ([]models.CreateSummaryData, error) {
+	rows, err := s.db.Query(`
+		SELECT id, chat_id, transcription
+		FROM voice_recognize
+		WHERE process_step = $1
+	`, "DOWNLOAD")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var createSummaryList []models.CreateSummaryData
+
+	for rows.Next() {
+		var createSummaryData models.CreateSummaryData
+		err := rows.Scan(&createSummaryData.VoiceID, &createSummaryData.ChatID, &createSummaryData.Text)
+		if err != nil {
+			return nil, err
+		}
+		createSummaryList = append(createSummaryList, createSummaryData)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return createSummaryList, nil
+}
+
+func (s *Storage) GetSummaryByID(voiceID, chatID int64) (string, error) {
+	var summary string
+	err := s.db.QueryRow(`
+		SELECT summary
+		FROM voice_recognize
+		WHERE id = $1 AND chat_id = $2
+	`, voiceID, chatID).Scan(&summary)
+	if err != nil {
+		return "", err
+	}
+	return summary, nil
+}

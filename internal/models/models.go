@@ -121,3 +121,62 @@ type RecognizeResultData struct {
 	ChatID      int64
 	RecognizeID string
 }
+
+// DownloadTranscriptionData - это структура, которая представляет данные для загрузки транскрипции распознанной речи, содержащая идентификатор голосового сообщения (voiceID), идентификатор чата (chatID) и идентификатор файла ответа (respFileID) для загрузки транскрипции с помощью Salute.
+type DownloadTranscriptionData struct {
+	VoiceID    int64
+	ChatID     int64
+	RespFileID string
+}
+
+// CreateSummaryData - это структура, которая представляет данные для создания краткой выжимки из текста распознанной речи, содержащая идентификатор голосового сообщения (voiceID), идентификатор чата (chatID) и текст распознанной речи (text) для создания краткой выжимки с помощью GigaChat.
+type ResponseDownloadData struct {
+	Results []resultDownloadData `json:"result"`
+}
+
+type resultDownloadData struct {
+	Text string `json:"text"`
+}
+
+// CreateSummaryData - это структура, которая представляет данные для создания краткой выжимки из текста распознанной речи, содержащая идентификатор голосового сообщения (voiceID), идентификатор чата (chatID) и текст распознанной речи (text) для создания краткой выжимки с помощью GigaChat.
+type CreateSummaryData struct {
+	VoiceID int64
+	ChatID  int64
+	Text    string
+}
+
+// Message - это структура, которая представляет сообщение от пользователя, содержащее идентификатор чата и текст сообщения.
+type Message struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+// GigaChatRequest - это структура, которая представляет запрос на отправку сообщения в GigaChat, содержащая модель для генерации ответа, список сообщений для контекста, флаг для указания необходимости потоковой передачи ответа и параметр для управления повторением слов в ответе.
+type GigaChatRequest struct {
+	Model             string    `json:"model"`
+	Messages          []Message `json:"messages"`
+	Stream            bool      `json:"stream"`
+	RepetitionPenalty int       `json:"repetition_penalty"`
+}
+
+type choicesResponse struct {
+	FinishReason string  `json:"finish_reason"`
+	Index        int     `json:"index"`
+	Message      Message `json:"message"`
+}
+
+type usageResponse struct {
+	CompletionTokens int `json:"completion_tokens"`
+	PromptTokens     int `json:"prompt_tokens"`
+	SystemTokens     int `json:"system_tokens"`
+	TotalTokens      int `json:"total_tokens"`
+}
+
+// ResponseSummary - это структура, которая представляет ответ от сервера GigaChat при получении краткой выжимки из текста, содержащая результат, который включает идентификатор сообщения (message_id) для дальнейшей обработки.
+type GigaChatResponse struct {
+	Choices []choicesResponse `json:"choices"`
+	Created int64             `json:"created"`
+	Model   string            `json:"model"`
+	Object  string            `json:"object"`
+	Usage   usageResponse     `json:"usage"`
+}

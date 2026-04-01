@@ -3,9 +3,12 @@ package bot
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"log"
+	"strconv"
 	"time"
 
 	tb "gopkg.in/telebot.v3"
@@ -52,6 +55,7 @@ func New(cfg *config.Config, storage *storage.Storage) *Bot {
 
 func (b *Bot) Route() {
 	b.bot.Handle("/start", b.startHandler)
+	b.bot.Handle("/get", b.getHandler)
 	b.bot.Handle(tb.OnVoice, b.voiceHandler)
 	logrus.Info("Handlers registered")
 }
@@ -103,37 +107,58 @@ func (b *Bot) startHandler(c tb.Context) error {
 	return c.Send("Hello world! now:" + time.Now().Format("2006-01-02 15:04:05"))
 }
 
-// voiceHandler - это метод, который обрабатывает входящие голосовые сообщения от пользователей, 
+// voiceHandler - это метод, который обрабатывает входящие голосовые сообщения от пользователей,
 // сохраняет их в базе данных и отправляет подтверждение пользователю.
 func (b *Bot) voiceHandler(c tb.Context) error {
 	// Получение голосового сообщения от пользователя и сохранение его в базе данных с помощью сервиса Worker.
 	msg := c.Message().Voice
-
-	// Получение файла голосового сообщения от Telegram API с помощью метода File() и сохранение его в переменной file. 
-	// Если при получении файла возникает ошибка, то пользователю отправляется сообщение об ошибке, 
+	// Получение файла голосового сообщения от Telegram API с помощью метода File() и сохранение его в переменной file.
+	// Если при получении файла возникает ошибка, то пользователю отправляется сообщение об ошибке,
 	// а также логируется ошибка для дальнейшего анализа и устранения проблемы.
 	file, err := b.bot.File(&tb.File{FileID: msg.FileID})
 	if err != nil {
 		logrus.Error(err)
 		return c.Send("Error retrieving voice file")
 	}
-	// Чтение данных голосового сообщения из файла, полученного от Telegram API, и сохранение его в базе данных с помощью сервиса Worker. 
-	// Если при чтении файла или сохранении данных возникает ошибка, то пользователю отправляется сообщение об ошибке, 
+	// Чтение данных голосового сообщения из файла, полученного от Telegram API, и сохранение его в базе данных с помощью сервиса Worker.
+	// Если при чтении файла или сохранении данных возникает ошибка, то пользователю отправляется сообщение об ошибке,
 	// а также логируется ошибка для дальнейшего анализа и устранения проблемы.
 	voiceBytes, err := io.ReadAll(file)
 	if err != nil {
 		logrus.Error(err)
 		return c.Send("Error reading voice file")
 	}
-	logrus.Infof("Received voice message from chat Username: %s", c.Chat().Username)
-	// Сохранение данных голосового сообщения в базе данных с помощью сервиса Worker. 
-	// Если при сохранении данных возникает ошибка, то пользователю отправляется сообщение об ошибке, 
+	// Сохранение данных голосового сообщения в базе данных с помощью сервиса Worker.
+	// Если при сохранении данных возникает ошибка, то пользователю отправляется сообщение об ошибке,
 	// а также логируется ошибка для дальнейшего анализа и устранения проблемы.
 	id, err := b.worker.SaveIncomingVoice(voiceBytes, c.Chat().ID)
 	if err != nil {
 		logrus.Error(err)
 		return c.Send("Error saving voice file")
 	}
-
+	logrus.Infof("Voice file saved successfully with ID: %d", id)
+	// Отправка пользователю сообщения об успешном сохранении голосового сообщения, включая его идентификатор (voiceID) для дальнейшей обработки.
 	return c.Send(fmt.Sprintf("Voice file saved successfully with ID: %d", id))
+}
+
+// getHandler - это метод, который обрабатывает входящие текстовые сообщения от пользователей с командой /get,
+func (b *Bot) getHandler(c tb.Context) error {
+	args := c.Args()
+	if len(args) == 0 {
+		return c.Send("Пожалуйста, укажите ID встречи для получения краткого содержания. Например: /get 123")
+	}
+	voiceID, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		return c.Send("Неверный формат ID встречи. Пожалуйста, укажите числовой ID. Например: /get 123")
+	}
+	// Получение краткого содержания для текста распознанной речи с помощью сервиса Worker, используя идентификатор голосового сообщения (voiceID) и идентификатор чата (chatID) для получения краткого содержания для данного голосового сообщения. Если при получении краткого содержания произошла ошибка, то возвращаем сообщение об ошибке, иначе возвращаем краткое содержание для данного голосового сообщения.
+	summary, err := b.worker.GetSummaryByID(voiceID, c.Chat().ID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return c.Send("Встреча не найдена")
+		}
+		return c.Send("Произошла внутренняя ошибка сервера")
+	}
+	// Отправка пользователю краткого содержания для данного голосового сообщения, полученного с помощью сервиса Worker, включая идентификатор голосового сообщения (voiceID) для дальнейшей обработки.
+	return c.Send(summary)
 }
