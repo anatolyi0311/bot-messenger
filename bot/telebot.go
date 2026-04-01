@@ -48,14 +48,13 @@ func New(cfg *config.Config, storage *storage.Storage) *Bot {
 	}
 }
 
+func (b *Bot) Route() {
+	b.bot.Handle("/start", b.startHandler)
+}
+
 // Start - это метод, который запускает бота и обрабатывает входящие сообщения от пользователей.
 // Он также слушает канал для получения сообщений от сервиса и отправляет их пользователям.
 func (b *Bot) Start(ctx context.Context) {
-	// Обработчик команды /start, который отправляет пользователю приветственное сообщение.
-	b.bot.Handle("/start", func(c tb.Context) error {
-		return c.Send("Hello world! now:" + time.Now().Format("2006-01-02 15:04:05"))
-	})
-
 	// Запуск горутины для обработки сообщений от сервиса и отправки их пользователям.
 	go func() {
 		for {
@@ -69,6 +68,9 @@ func (b *Bot) Start(ctx context.Context) {
 		}
 	}()
 
+	// Запуск сервиса Worker для обработки сообщений от пользователей и взаимодействия с внешними сервисами.
+	go b.RunWorker(ctx)
+
 	// Запуск бота в отдельной горутине, чтобы он не блокировал основной поток выполнения.
 	go func() {
 		b.bot.Start()
@@ -81,4 +83,14 @@ func (b *Bot) Stop() {
 	// Остановка бота и ожидание завершения его работы, чтобы гарантировать, что все ресурсы будут освобождены корректно.
 	b.bot.Stop()
 	<-b.stop
+}
+
+// RunWorker - это метод, который запускает сервис Worker для обработки сообщений от пользователей и взаимодействия с внешними сервисами.
+// Он принимает контекст для управления жизненным циклом Worker и обеспечивает его корректное завершение при получении сигнала остановки.
+func (b *Bot) RunWorker(ctx context.Context) {
+	go b.worker.Run(ctx)
+}
+
+func (b *Bot) startHandler(c tb.Context) error {
+	return c.Send("Hello world! now:" + time.Now().Format("2006-01-02 15:04:05"))
 }

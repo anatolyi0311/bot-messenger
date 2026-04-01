@@ -44,6 +44,7 @@ func main() {
 
 	// Инициализация и запуск бота
 	bot := bot.New(cfg, store)
+	bot.Route()
 
 	// Запуск бота в отдельной горутине
 	go func() {
