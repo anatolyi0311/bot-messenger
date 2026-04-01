@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -81,4 +82,34 @@ func (w *Worker) recognizeExecute(recognize models.RecognizeData) (string, error
 	}
 
 	return response.Result.ID, nil
+}
+
+func (w *Worker) checkStatusExecute(checkStatus models.CheckStatusData) (string, error) {
+	w.getTokenSalute()
+
+	url := fmt.Sprintf("https://smartspeech.sber.ru/rest/v1/task:get?id=%s", checkStatus.RecognizeID)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Authorization", "Bearer "+w.authSalute.AccessToken)
+
+	resp, err := w.client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("check status handler return status %d", resp.StatusCode)
+	}
+
+	response := models.ResponseCheckStatus{}
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return "", err
+	}
+	if response.Result.Status != "DONE" {
+		return "", errors.New("status not DONE yet")
+	}
+	return response.Result.ResponseFileID, nil
 }

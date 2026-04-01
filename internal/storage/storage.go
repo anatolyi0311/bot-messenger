@@ -97,3 +97,32 @@ func (s *Storage) GetVoiceForRecognize() ([]models.RecognizeData, error) {
 
 	return recognizeDataList, nil
 }
+
+func (s *Storage) GetVoiceForCheckStatus() ([]models.CheckStatusData, error) {
+	rows, err := s.db.Query(`
+		SELECT id, chat_id, recognize_id
+		FROM voice_recognize
+		WHERE process_step = $1
+	`, "RECOGNITION")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var checkStatusList []models.CheckStatusData
+
+	for rows.Next() {
+		var checkStatusData models.CheckStatusData
+		err := rows.Scan(&checkStatusData.VoiceID, &checkStatusData.ChatID, &checkStatusData.RecognizeID)
+		if err != nil {
+			return nil, err
+		}
+		checkStatusList = append(checkStatusList, checkStatusData)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return checkStatusList, nil
+}

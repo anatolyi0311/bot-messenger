@@ -81,7 +81,10 @@ func (w *Worker) Run(ctx context.Context) {
 			logrus.Info("Worker: upload process completed, starting recognize process...")
 			// Выполнение функции recognize() после завершения upload(), которая обрабатывает голосовые сообщения, готовые для распознавания речи, и взаимодействует с Salute для получения результатов распознавания.
 			w.recognize()
-			logrus.Info("Worker: recognize process completed")
+			logrus.Info("Worker: recognize process completed, starting check status process...")
+			// Выполнение функции checkStatus() после завершения recognize(), которая проверяет статус обработки голосовых сообщений в Salute и обновляет их статус в базе данных, а также отправляет пользователю сообщение об успешной обработке или ошибке при обработке голосового сообщения.
+			w.checkStatus()
+			logrus.Info("Worker: check status process completed")
 		}
 	}
 }
@@ -160,6 +163,39 @@ func (w *Worker) recognize() {
 			logrus.Error(err)
 		} else {
 			logrus.Infof("success recognize: %d", recognizeData[i].VoiceID)
+		}
+	}
+}
+
+func (w *Worker) checkStatus() {
+	checkStatusData, err := w.storage.GetVoiceForCheckStatus()
+	if err != nil {
+		logrus.Error(fmt.Errorf("Worker.checkStatus(): %w", err))
+		return
+	}
+
+	for i := range checkStatusData {
+		respFileID, err := w.checkStatusExecute(checkStatusData[i])
+		if err != nil {
+			if errors.Is(err, errors.New("status not DONE yet")) {
+				logrus.Infof("status not DONE yet: %d", checkStatusData[i].VoiceID)
+				continue
+			}
+
+			logrus.Error(err)
+
+			go w.sendMsgFail(checkStatusData[i].ChatID, checkStatusData[i].VoiceID)
+
+			if err = w.storage.SetStatusFail(checkStatusData[i].VoiceID); err != nil {
+				logrus.Error(fmt.Errorf("Worker.checkStatus(): %w", err))
+			}
+			continue
+		}
+		err = w.storage.SetStatusWait(checkStatusData[i].VoiceID, respFileID)
+		if err != nil {
+			logrus.Error(err)
+		} else {
+			logrus.Infof("success check status: %d", checkStatusData[i].VoiceID)
 		}
 	}
 }

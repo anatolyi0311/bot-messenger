@@ -36,12 +36,15 @@ type RecognizeRequest struct {
 	Options       RecognizeRequestOptions `json:"options"`
 	RequestFileID string                  `json:"request_file_id"`
 }
+
+// RecognizeData - это структура, которая представляет данные для распознавания речи, содержащая идентификатор голосового сообщения (voiceID), идентификатор чата (chatID) и идентификатор файла запроса (reqFileID) для обработки голосового сообщения с помощью Salute.
 type RecognizeData struct {
 	VoiceID   int64
 	ChatID    int64
 	ReqFileID string
 }
 
+// RecognizeRequestOptions - это структура, которая представляет параметры для распознавания речи в Salute, включая модель распознавания, кодировку аудио, частоту дискретизации и количество каналов для обработки голосового сообщения.
 type RecognizeRequestOptions struct {
 	Model         string `json:"model"`
 	AudioEncoding string `json:"audio_encoding"`
@@ -56,4 +59,65 @@ type RecognizeResponse struct {
 
 type resultRecognize struct {
 	ID string `json:"id"`
+}
+
+// GetTokenSaluteResponse - это структура, которая представляет ответ от сервера Salute при получении токена доступа, содержащая токен доступа (access_token) для дальнейшего использования при взаимодействии с API Salute.
+type GetTokenSaluteResponse struct {
+	AccessToken string `json:"access_token"`
+}
+
+// GetTokenGigaChatResponse - это структура, которая представляет ответ от сервера GigaChat при получении токена доступа, содержащая токен доступа (access_token) для дальнейшего использования при взаимодействии с API GigaChat.
+type GetTokenGigaChatResponse struct {
+	AccessToken string `json:"access_token"`
+}
+
+// RecognizeResultResponse - это структура, которая представляет ответ от сервера Salute при получении результата распознавания, содержащая текст распознанной речи (text) для дальнейшего использования.
+type RecognizeResultResponse struct {
+	Result resultRecognizeResult `json:"result"`
+}
+
+type resultRecognizeResult struct {
+	Text string `json:"text"`
+}
+
+// ResponseGigaChat - это структура, которая представляет ответ от сервера GigaChat при отправке сообщения, содержащая результат отправки, который включает идентификатор сообщения (message_id) для дальнейшей обработки.
+type ResponseGigaChat struct {
+	Result resultGigaChat `json:"result"`
+}
+
+type resultGigaChat struct {
+	MessageID int64 `json:"message_id"`
+}
+
+// ResponseCheckStatus - это структура, которая представляет ответ от сервера Salute при проверке статуса распознавания речи, содержащая статус распознавания (status) и идентификатор файла ответа (response_file_id) для дальнейшей обработки.
+type ResponseCheckStatus struct {
+	Result resultCheckStatus `json:"result"`
+}
+
+type resultCheckStatus struct {
+	Status         string `json:"status"`
+	ResponseFileID string `json:"response_file_id"`
+}
+
+// GetTokenGigaChatResponse - это структура, которая представляет ответ от сервера GigaChat при получении токена доступа, содержащая токен доступа (access_token) для дальнейшего использования при взаимодействии с API GigaChat.
+type ResponseFileID struct {
+	Result resultFileID `json:"result"`
+}
+
+type resultFileID struct {
+	FileID string `json:"file_id"`
+}
+
+// CheckStatusData - это структура, которая представляет данные для проверки статуса распознавания речи, содержащая идентификатор голосового сообщения (voiceID), идентификатор чата (chatID) и идентификатор распознавания (recognizeID) для проверки статуса распознавания речи с помощью Salute.
+type CheckStatusData struct {
+	VoiceID     int64
+	ChatID      int64
+	RecognizeID string
+}
+
+// RecognizeResultData - это структура, которая представляет данные для получения результата распознавания речи, содержащая идентификатор голосового сообщения (voiceID), идентификатор чата (chatID) и идентификатор распознавания (recognizeID) для получения результата распознавания речи с помощью Salute.
+type RecognizeResultData struct {
+	VoiceID     int64
+	ChatID      int64
+	RecognizeID string
 }
