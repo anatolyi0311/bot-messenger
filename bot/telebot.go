@@ -58,8 +58,9 @@ func (b *Bot) Route() {
 	b.bot.Handle(tb.OnVoice, b.voiceHandler)
 	b.bot.Handle(tb.OnAudio, b.audioHandler)
 	b.bot.Handle("/start", b.startHandler)
-	b.bot.Handle("/get", b.getHandler)
 	b.bot.Handle("/list", b.listHandler)
+	b.bot.Handle("/get", b.getHandler)
+	b.bot.Handle("/find", b.findHandler)
 	logrus.Info("Handlers registered")
 }
 
@@ -209,6 +210,21 @@ func (b *Bot) getHandler(c tb.Context) error {
 
 func (b *Bot) listHandler(c tb.Context) error {
 	IDs, err := b.worker.GetListSummaryID(c.Chat().ID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return c.Send("Встреча не найдена")
+		}
+		return c.Send("Произошла внутренняя ошибка сервера")
+	}
+	return c.Send(b.worker.ListResponseBuilder(IDs))
+}
+
+func (b *Bot) findHandler(c tb.Context) error {
+	args := c.Args()
+	if len(args) == 0 {
+		return c.Send("Вы не указали ключевые слова для поиска. Повторите отправку.")
+	}
+	IDs, err := b.worker.FindByKey(c.Chat().ID, c.Args())
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return c.Send("Встреча не найдена")

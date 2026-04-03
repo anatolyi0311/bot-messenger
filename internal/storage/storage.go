@@ -202,7 +202,7 @@ func (s *Storage) GetSummaryByID(voiceID, chatID int64) (string, error) {
 		WHERE id = $1 AND chat_id = $2
 	`, voiceID, chatID).Scan(&summary)
 	if err != nil {
-		logrus.Error("storage.GetSummaryByID", err.Error(), "summary:", summary)
+		logrus.Error("storage.GetSummaryByID: ", err, "summary:", summary, summary == "")
 		return "", err
 	}
 	return summary, nil
@@ -236,6 +236,43 @@ func (s *Storage) GetListSummaryID(chatID int64) ([]int64, error) {
 		return nil, err
 	}
 	if len(IDs) == 0 {
+		return IDs, sql.ErrNoRows
+	}
+	return IDs, nil
+}
+
+func (s *Storage) FindByKey(chatID int64, keyWords []string) ([]int64, error) {
+	rows, err := s.db.Query(`
+		SELECT id
+		FROM voice_recognize
+		WHERE chat_id = $1 
+			AND summary IS NOT NULL
+			AND summary != ''
+			AND summary ILIKE ANY($2)
+		ORDER BY created_at	
+	`, chatID, keyWords)
+	if err != nil {
+		logrus.Error("Storage.FindByKey", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	var IDs []int64
+	for rows.Next() {
+		var ID int64
+		err := rows.Scan(&ID)
+		if err != nil {
+			logrus.Error("Storage.FindByKey", err)
+			return nil, err
+		}
+		IDs = append(IDs, ID)
+	}
+	if err = rows.Err(); err != nil {
+		logrus.Error("Storage.FindByKey", err)
+		return nil, err
+	}
+	if len(IDs) == 0 {
+		logrus.Error("Storage.FindByKey: empty select")
 		return IDs, sql.ErrNoRows
 	}
 	return IDs, nil

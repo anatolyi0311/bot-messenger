@@ -37,3 +37,16 @@ func (w *Worker) ListResponseBuilder(IDs []int64) string {
 	}
 	return builder.String()
 }
+
+func (w *Worker) FindByKey(chatID int64, keyWords []string) ([]int64, error) {
+
+	patterns := make([]string, len(keyWords))
+	for i := range keyWords {
+		var builder strings.Builder
+		builder.WriteString("%")
+		builder.WriteString(keyWords[i])
+		builder.WriteString("%")
+		patterns[i] = builder.String()
+	}
+	return w.storage.FindByKey(chatID, patterns)
+}
