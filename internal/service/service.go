@@ -100,7 +100,7 @@ func (w *Worker) upload() {
 	logrus.Info("Worker.upload: starting upload process...")
 	uploadData, err := w.storage.GetVoiceForUpload()
 	if err != nil {
-		if errors.Is(err, errors.New("no voices for upload")) {
+		if errors.Is(err, fmt.Errorf("no voices for upload")) {
 			logrus.Warn(err)
 			return
 		}
@@ -194,7 +194,7 @@ func (w *Worker) checkStatus() {
 		respFileID, err := w.checkStatusExecute(checkStatusData[i])
 		if err != nil {
 			// Если статус обработки еще не "DONE", то продолжаем ожидать, иначе отправляем пользователю сообщение об ошибке при обработке голосового сообщения и обновляем статус в базе данных на "FAIL".
-			if errors.Is(err, errors.New("meeting processed yet")) {
+			if errors.Is(err, fmt.Errorf("meeting processed yet")) {
 				logrus.Infof("status not DONE yet: %d", checkStatusData[i].VoiceID)
 				continue
 			}
@@ -236,7 +236,7 @@ func (w *Worker) downloadTranscription() {
 		// иначе обновляем статус в базе данных и отправляем пользователю сообщение об успешной загрузке или ошибке при загрузке расшифровки текста.
 		text, err := w.downloadTranscriptionExecute(downloadTranscriptionData[i])
 		if err != nil {
-			if errors.Is(err, errors.New("meeting processed yet")) {
+			if errors.Is(err, fmt.Errorf("meeting processed yet")) {
 				continue
 			}
 			logrus.Error(err)

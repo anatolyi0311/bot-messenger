@@ -11,7 +11,7 @@ type BotConfig struct {
 	Token string `json:"token"`
 }
 
-type SberURL struct {
+type url struct {
 	URL string `json:"url"`
 }
 
@@ -21,8 +21,10 @@ type SaluteSpeech struct {
 }
 
 type GigaChat struct {
-	ClientSecret string `json:"client_secret"`
-	ClientID     string `json:"client_id"`
+	URL              string `json:"devices_url"`
+	AuthorizationKey string `json:"Authorization_Key"`
+	ClientSecret     string `json:"client_secret"`
+	ClientID         string `json:"client_id"`
 }
 
 type PostgresConfig struct {
@@ -37,10 +39,12 @@ type PostgresConfig struct {
 type Config struct {
 	Bot            BotConfig      `json:"bot"`
 	Postgres       PostgresConfig `json:"postgres"`
-	SberURL        SberURL        `json:"sber_devices"`
 	Salute         SaluteSpeech   `json:"salute_speech"`
 	GigaChat       GigaChat       `json:"giga_chat"`
 	IntervalTicker int            `json:"interval_ticker"`
+	SberURL        string         `json:"sber_devices_url"`
+	SmartSpeechURL string         `json:"smart_speech_url"`
+	GigaChatURL    string         `json:"giga_chat_devices_url"`
 }
 
 func LoadConfig() *Config {

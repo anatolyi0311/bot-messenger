@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"github.com/anatolyi0311/bot-messenger/internal/models"
+	"github.com/sirupsen/logrus"
 )
 
 // Storage - это структура, которая будет использоваться для взаимодействия с базой данных.
@@ -17,16 +18,53 @@ type Storage struct {
 func New(db *sql.DB) *Storage {
 	return &Storage{db: db}
 }
+func (s *Storage) SaveIncomingID(chatID int64) (int, error) {
+	var voiceID int
+	err := s.db.QueryRow(`
+		INSERT INTO voice_recognize (chat_id, process_step) 
+        VALUES ($1, $2)
+		RETURNING id
+	`, chatID, "REGISTER").Scan(&voiceID)
+	return voiceID, err
+}
 
 // SaveIncomingVoice - это метод, который сохраняет входящее голосовое сообщение в базе данных и
 // возвращает его идентификатор (voiceID) для дальнейшей обработки.
 func (s *Storage) SaveIncomingVoice(voiceBytes []byte, chatID int64) (int, error) {
 	var voiceID int
-	err := s.db.QueryRow(`
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return voiceID, err
+	}
+	err = tx.QueryRow(`
+		SELECT id
+		FROM voice_recognize
+		WHERE process_step = $1 AND chat_id = $2;
+	`, "REGISTER", chatID).Scan(&voiceID)
+
+	if _, err := tx.Exec(`
+		UPDATE voice_recognize SET voice_data = $1, process_step = $2 WHERE id = $3;
+	`, voiceBytes, "BEGIN", voiceID); err != nil {
+		tx.Rollback()
+		return voiceID, err
+	}
+
+	if err = tx.Commit(); err != nil {
+		tx.Rollback()
+		return voiceID, err
+	}
+
+	if voiceID == 0 {
+		err = s.db.QueryRow(`
 		INSERT INTO voice_recognize (voice_data, chat_id, process_step) 
         VALUES ($1, $2, $3)
-		RETURNING id
+		RETURNING id;
 	`, voiceBytes, chatID, "BEGIN").Scan(&voiceID)
+		logrus.Info("storage.SaveIncomingVoice: insert voice ID with voice data")
+		return voiceID, err
+
+	}
 	return voiceID, err
 }
 

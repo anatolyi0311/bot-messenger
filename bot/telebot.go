@@ -56,6 +56,7 @@ func New(cfg *config.Config, storage *storage.Storage) *Bot {
 func (b *Bot) Route() {
 	b.bot.Handle("/start", b.startHandler)
 	b.bot.Handle("/get", b.getHandler)
+	b.bot.Handle(tb.OnText, b.textHandler)
 	b.bot.Handle(tb.OnVoice, b.voiceHandler)
 	logrus.Info("Handlers registered")
 }
@@ -104,7 +105,20 @@ func (b *Bot) RunWorker(ctx context.Context) {
 }
 
 func (b *Bot) startHandler(c tb.Context) error {
-	return c.Send("Hello world! now:" + time.Now().Format("2006-01-02 15:04:05"))
+	return b.textHandler(c)
+}
+
+func (b *Bot) textHandler(c tb.Context) error {
+	if c.Text() == "/start" {
+		id, err := b.worker.SaveIncomingID(c.Chat().ID)
+		if err != nil {
+			logrus.Error(err)
+			return c.Send("Error saving chat ID")
+		}
+		logrus.Infof("Chat ID saved successfully with ID: %d", id)
+		return c.Send(fmt.Sprintf("Chat ID saved successfully with ID: %d", id))
+	}
+	return c.Send("Your text is not defined:" + c.Text())
 }
 
 // voiceHandler - это метод, который обрабатывает входящие голосовые сообщения от пользователей,

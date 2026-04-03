@@ -22,11 +22,11 @@ func InitPostgresDB(cfg *config.PostgresConfig) (*sql.DB, error) {
 	database, err := sql.Open("postgres", options)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
-			"host":    options[0],
-			"port":    options[1],
-			"user":    options[2],
-			"dbname":  options[3],
-			"sslmode": options[5],
+			"host":    cfg.Host,
+			"port":    cfg.Port,
+			"user":    cfg.User,
+			"dbname":  cfg.DBName,
+			"sslmode": cfg.SSLMode,
 			"error":   err.Error(),
 		}).Error("Failed to open PostgreSQL connection")
 		return nil, err
@@ -35,22 +35,22 @@ func InitPostgresDB(cfg *config.PostgresConfig) (*sql.DB, error) {
 	err = database.Ping()
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
-			"host":    options[0],
-			"port":    options[1],
-			"user":    options[2],
-			"dbname":  options[3],
-			"sslmode": options[5],
+			"host":    cfg.Host,
+			"port":    cfg.Port,
+			"user":    cfg.User,
+			"dbname":  cfg.DBName,
+			"sslmode": cfg.SSLMode,
 			"error":   err.Error(),
 		}).Error("Failed to ping PostgreSQL database")
 		return nil, err
 	}
 
 	logrus.WithFields(logrus.Fields{
-		"host":    options[0],
-		"port":    options[1],
-		"user":    options[2],
-		"dbname":  options[3],
-		"sslmode": options[5],
+		"host":    cfg.Host,
+		"port":    cfg.Port,
+		"user":    cfg.User,
+		"dbname":  cfg.DBName,
+		"sslmode": cfg.SSLMode,
 	}).Info("Successful connection to PostgreSQL")
 
 	return database, nil

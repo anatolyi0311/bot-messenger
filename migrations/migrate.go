@@ -3,6 +3,8 @@ package migrations
 import (
 	"database/sql"
 	"fmt"
+
+	"github.com/sirupsen/logrus"
 )
 
 func Up(db *sql.DB) error {
@@ -12,6 +14,7 @@ func Up(db *sql.DB) error {
 
 	tx, err := db.Begin()
 	if err != nil {
+		logrus.Error("migrations.Up: error beginning transaction: ", err)
 		return err
 	}
 
@@ -27,16 +30,25 @@ func Up(db *sql.DB) error {
 
 	if err != nil {
 		tx.Rollback()
+		logrus.Error("migrations.Up: error checking for type status: ", err)
 		return err
 	}
 
 	if !typeExists {
 		if _, err := tx.Exec(`
-			CREATE TYPE status AS ENUM ('FAIL', 'BEGIN', 'UPLOAD', 'RECOGNITION', 'WAIT', 'DOWNLOAD', 'SUCCESS');
+			CREATE TYPE status AS ENUM ('FAIL', 'REGISTER', 'BEGIN', 'UPLOAD', 'RECOGNITION', 'WAIT', 'DOWNLOAD', 'SUCCESS');
 		`); err != nil {
 			tx.Rollback()
+			logrus.Error("migrations.Up: error creating type status: ", err)
 			return err
 		}
+		// if _, err := tx.Exec(`
+		// 	ALTER TYPE status ADD VALUE 'REGISTER';
+		// `); err != nil {
+		// 	tx.Rollback()
+		// 	logrus.Error("migrations.Up: error adding value REGISTER to type status: ", err)
+		// 	return err
+		// }
 	}
 
 	if _, err := tx.Exec(`
@@ -55,14 +67,17 @@ func Up(db *sql.DB) error {
 			);
 		`); err != nil {
 		tx.Rollback()
+		logrus.Error("migrations.Up: error creating table voice_recognize: ", err)
 		return err
 	}
 
 	if err = tx.Commit(); err != nil {
 		tx.Rollback()
+		logrus.Error("migrations.Up: error committing transaction: ", err)
 		return err
 	}
 
+	logrus.Info("migrations.Up: create table voice_recognize and type status")
 	return nil
 }
 
@@ -73,23 +88,28 @@ func Down(db *sql.DB) error {
 
 	tx, err := db.Begin()
 	if err != nil {
+		logrus.Error("migrations.Down: error beginning transaction: ", err)
 		return err
 	}
 
 	if _, err := tx.Exec(`DROP TABLE IF EXISTS voice_recognize;`); err != nil {
 		tx.Rollback()
+		logrus.Error("migrations.Down: error dropping table voice_recognize: ", err)
 		return err
 	}
 
-	if _, err := tx.Exec(`DROP TYPE IF EXISTS status;`); err != nil {
+	if _, err := tx.Exec(`DROP TYPE IF EXISTS status CASCADE;`); err != nil {
 		tx.Rollback()
+		logrus.Error("migrations.Down: error dropping type status: ", err)
 		return err
 	}
 
 	if err = tx.Commit(); err != nil {
 		tx.Rollback()
+		logrus.Error("migrations.Down: error committing transaction: ", err)
 		return err
 	}
 
+	logrus.Info("migrations.Down: drop table voice_recognize and type status")
 	return nil
 }

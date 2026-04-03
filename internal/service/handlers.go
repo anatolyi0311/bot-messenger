@@ -19,7 +19,7 @@ func (w *Worker) uploadExecute(upload models.UploadData) (string, error) {
 	reqBody := bytes.NewReader(upload.VoiceData)
 
 	// Получение идентификатора файла запроса (request_file_id) для данного голосового сообщения с помощью API Salute. Если при загрузке голосового сообщения произошла ошибка, то возвращаем ошибку, иначе возвращаем идентификатор файла запроса (request_file_id) для дальнейшей обработки.
-	req, err := http.NewRequest("POST", "https://smartspeech.sber.ru/rest/v1/data:upload", reqBody)
+	req, err := http.NewRequest(http.MethodPost, w.cfg.SmartSpeechURL+"/data:upload", reqBody)
 	if err != nil {
 		return "", err
 	}
@@ -64,7 +64,7 @@ func (w *Worker) recognizeExecute(recognize models.RecognizeData) (string, error
 	}
 
 	// Получение идентификатора распознавания (recognize_id) для данного голосового сообщения с помощью API Salute. Если при распознавании речи произошла ошибка, то возвращаем ошибку, иначе возвращаем идентификатор распознавания (recognize_id) для дальнейшей обработки.
-	req, err := http.NewRequest("POST", "https://smartspeech.sber.ru/rest/v1/speech:async_recognize", bytes.NewBuffer(jsonBody))
+	req, err := http.NewRequest(http.MethodPost, w.cfg.SmartSpeechURL+"/speech:async_recognize", bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return "", err
 	}
@@ -94,8 +94,8 @@ func (w *Worker) checkStatusExecute(checkStatus models.CheckStatusData) (string,
 	w.getTokenSalute()
 
 	// Получение статуса обработки голосового сообщения в Salute с помощью API Salute. Если статус обработки еще не "DONE", то возвращаем ошибку, иначе возвращаем идентификатор файла с результатом распознавания (resp_file_id) для дальнейшей обработки.
-	url := fmt.Sprintf("https://smartspeech.sber.ru/rest/v1/task:get?id=%s", checkStatus.RecognizeID)
-	req, err := http.NewRequest("GET", url, nil)
+	url := fmt.Sprintf("%s/task:get?id=%s", w.cfg.SmartSpeechURL, checkStatus.RecognizeID)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return "", err
 	}
@@ -127,8 +127,8 @@ func (w *Worker) downloadTranscriptionExecute(download models.DownloadTranscript
 	w.getTokenSalute()
 
 	// Получение расшифровки текста для голосового сообщения, которое было успешно обработано в Salute, с помощью API Salute. Если статус обработки еще не "DONE", то продолжаем ожидать, иначе возвращаем текст расшифровки для данного голосового сообщения.
-	url := fmt.Sprintf("https://smartspeech.sber.ru/rest/v1/data:download?response_file_id=%s", download.RespFileID)
-	req, err := http.NewRequest("GET", url, nil)
+	url := fmt.Sprintf("%s/data:download?response_file_id=%s", w.cfg.SmartSpeechURL, download.RespFileID)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return "", err
 	}
@@ -188,7 +188,7 @@ func (w *Worker) createSummaryExecute(summaryData models.CreateSummaryData) (str
 	}
 
 	// Получение краткого содержания для текста распознанной речи с помощью API GigaChat. Если при создании краткого содержания произошла ошибка, то возвращаем ошибку, иначе возвращаем краткое содержание для данного текста распознанной речи.
-	req, err := http.NewRequest("POST", "https://gigachat.devices.sberbank.ru/api/v1/chat/completions", bytes.NewBuffer(jsonBody))
+	req, err := http.NewRequest(http.MethodPost, w.cfg.GigaChatURL+"/api/v1/chat/completions", bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return "", err
 	}
