@@ -39,7 +39,6 @@ func (w *Worker) ListResponseBuilder(IDs []int64) string {
 }
 
 func (w *Worker) FindByKey(chatID int64, keyWords []string) ([]int64, error) {
-
 	patterns := make([]string, len(keyWords))
 	for i := range keyWords {
 		var builder strings.Builder
@@ -49,4 +48,13 @@ func (w *Worker) FindByKey(chatID int64, keyWords []string) ([]int64, error) {
 		patterns[i] = builder.String()
 	}
 	return w.storage.FindByKey(chatID, patterns)
+}
+
+func (w *Worker) GigaChatReqBuilder(args []string) string {
+	var builder strings.Builder
+	for i := range args {
+		builder.WriteString(args[i])
+		builder.WriteString(" ")
+	}
+	return builder.String()
 }

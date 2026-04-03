@@ -243,3 +243,58 @@ func (w *Worker) createSummaryExecute(summaryData models.CreateSummaryData) (str
 
 	return summary, nil
 }
+
+func (w *Worker) QuestionGigaChat(question string) (string, error) {
+	// Update token
+	w.getTokenGigaChat()
+
+	requestBody := models.GigaChatRequest{
+		Model:             "GigaChat",
+		Stream:            false,
+		RepetitionPenalty: 1,
+		Messages: []models.Message{
+			{
+				Role:    "user",
+				Content: question,
+			},
+		},
+	}
+
+	jsonBody, err := json.Marshal(requestBody)
+	if err != nil {
+		return "", err
+	}
+
+	req, err := http.NewRequest("POST", w.cfg.GigaChatURL+"/api/v1/chat/completions", bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return "", err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Authorization", "Bearer "+w.authGigaChat.AccessToken)
+
+	resp, err := w.client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("create summary handler return status %d", resp.StatusCode)
+	}
+
+	response := models.GigaChatResponse{}
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return "", err
+	}
+	if len(response.Choices) < 1 {
+		return "", fmt.Errorf("create summary handler return status empty response")
+	}
+	var answer string
+	for i := range response.Choices {
+		answer += response.Choices[i].Message.Content
+	}
+
+	return answer, nil
+}

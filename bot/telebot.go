@@ -61,6 +61,7 @@ func (b *Bot) Route() {
 	b.bot.Handle("/list", b.listHandler)
 	b.bot.Handle("/get", b.getHandler)
 	b.bot.Handle("/find", b.findHandler)
+	b.bot.Handle("/chat", b.chatHandler)
 	logrus.Info("Handlers registered")
 }
 
@@ -232,4 +233,17 @@ func (b *Bot) findHandler(c tb.Context) error {
 		return c.Send("Произошла внутренняя ошибка сервера")
 	}
 	return c.Send(b.worker.ListResponseBuilder(IDs))
+}
+
+func (b *Bot) chatHandler(c tb.Context) error {
+	args := c.Args()
+	if len(args) == 0 {
+		return c.Send("Пожалуйста, введите запрос.")
+	}
+
+	answer, err := b.worker.QuestionGigaChat(b.worker.GigaChatReqBuilder(args))
+	if err != nil {
+		return c.Send("Произошла внутренняя ошибка сервера")
+	}
+	return c.Send(answer)
 }
