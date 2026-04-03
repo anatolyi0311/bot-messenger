@@ -54,10 +54,12 @@ func New(cfg *config.Config, storage *storage.Storage) *Bot {
 }
 
 func (b *Bot) Route() {
-	b.bot.Handle("/start", b.startHandler)
-	b.bot.Handle("/get", b.getHandler)
 	b.bot.Handle(tb.OnText, b.textHandler)
 	b.bot.Handle(tb.OnVoice, b.voiceHandler)
+	b.bot.Handle(tb.OnAudio, b.audioHandler)
+	b.bot.Handle("/start", b.startHandler)
+	b.bot.Handle("/get", b.getHandler)
+	b.bot.Handle("/list", b.listHandler)
 	logrus.Info("Handlers registered")
 }
 
@@ -118,7 +120,7 @@ func (b *Bot) textHandler(c tb.Context) error {
 		logrus.Infof("Chat ID saved successfully with ID: %d", id)
 		return c.Send(fmt.Sprintf("Chat ID saved successfully with ID: %d", id))
 	}
-	return c.Send("Your text is not defined:" + c.Text())
+	return c.Send("Your text is not defined: " + c.Text())
 }
 
 // voiceHandler - это метод, который обрабатывает входящие голосовые сообщения от пользователей,
@@ -145,7 +147,7 @@ func (b *Bot) voiceHandler(c tb.Context) error {
 	// Сохранение данных голосового сообщения в базе данных с помощью сервиса Worker.
 	// Если при сохранении данных возникает ошибка, то пользователю отправляется сообщение об ошибке,
 	// а также логируется ошибка для дальнейшего анализа и устранения проблемы.
-	id, err := b.worker.SaveIncomingVoice(voiceBytes, c.Chat().ID)
+	id, err := b.worker.SaveIncomingVoice(voiceBytes, "audio/ogg", c.Chat().ID)
 	if err != nil {
 		logrus.Error(err)
 		return c.Send("Error saving voice file")
@@ -155,17 +157,45 @@ func (b *Bot) voiceHandler(c tb.Context) error {
 	return c.Send(fmt.Sprintf("Voice file saved successfully with ID: %d", id))
 }
 
+func (b *Bot) audioHandler(c tb.Context) error {
+	msg := c.Message().Audio
+
+	if msg.MIME != "audio/mpeg" && msg.MIME != "audio/mp3" {
+		return c.Send("Не верный формат аудиофайла, доступный формат: MP3. Повторите отправку.")
+	}
+
+	file, err := b.bot.File(&tb.File{FileID: msg.FileID})
+	if err != nil {
+		logrus.Error(err)
+		return c.Send("Не удалось загрузить встречу. Повторите отправку.")
+	}
+	voiceBytes, err := io.ReadAll(file)
+	if err != nil {
+		logrus.Error(err)
+		return c.Send("Не удалось загрузить встречу. Повторите отправку.")
+	}
+
+	id, err := b.worker.SaveIncomingVoice(voiceBytes, "audio/mpeg", c.Chat().ID)
+	if err != nil {
+		logrus.Error(err)
+		return c.Send("Не удалось загрузить встречу. Повторите отправку.")
+	}
+
+	return c.Send(fmt.Sprintf("Встреча успешно сохранена! Вы можете получить ее по ID: %d.", id))
+}
+
 // getHandler - это метод, который обрабатывает входящие текстовые сообщения от пользователей с командой /get,
 func (b *Bot) getHandler(c tb.Context) error {
 	args := c.Args()
+	logrus.Info("telebot.getHandler.args:", args)
 	if len(args) == 0 {
-		return c.Send("Пожалуйста, укажите ID встречи для получения краткого содержания. Например: /get 123")
+		return c.Send("Неверный формат ID встречи. Пожалуйста, укажите числовой ID. Например: /get 123")
 	}
 	voiceID, err := strconv.ParseInt(args[0], 10, 64)
 	if err != nil {
 		return c.Send("Неверный формат ID встречи. Пожалуйста, укажите числовой ID. Например: /get 123")
 	}
-	// Получение краткого содержания для текста распознанной речи с помощью сервиса Worker, используя идентификатор голосового сообщения (voiceID) и идентификатор чата (chatID) для получения краткого содержания для данного голосового сообщения. Если при получении краткого содержания произошла ошибка, то возвращаем сообщение об ошибке, иначе возвращаем краткое содержание для данного голосового сообщения.
+	// Получение краткого содержания для текста распознанной речи с помощью сервиса Worker, используя идентификатор голосового сообщения (voiceID) и идентификатор чата (chatID) для получения краткого содержания для данного голосового сообщения. Если при получении краткого содержания произошла ошибка, то возвращаем сообщение об ошибке, иначе возвращаем краткое содержание для данного голосового сообщения.	summary, err := b.worker.GetSummaryByID(voiceID, c.Chat().ID)
 	summary, err := b.worker.GetSummaryByID(voiceID, c.Chat().ID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -175,4 +205,15 @@ func (b *Bot) getHandler(c tb.Context) error {
 	}
 	// Отправка пользователю краткого содержания для данного голосового сообщения, полученного с помощью сервиса Worker, включая идентификатор голосового сообщения (voiceID) для дальнейшей обработки.
 	return c.Send(summary)
+}
+
+func (b *Bot) listHandler(c tb.Context) error {
+	IDs, err := b.worker.GetListSummaryID(c.Chat().ID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return c.Send("Встреча не найдена")
+		}
+		return c.Send("Произошла внутренняя ошибка сервера")
+	}
+	return c.Send(b.worker.ListResponseBuilder(IDs))
 }

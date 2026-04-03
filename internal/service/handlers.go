@@ -44,9 +44,12 @@ func (w *Worker) uploadExecute(upload models.UploadData) (string, error) {
 	return response.Result.RequestFileID, nil
 }
 
-// recognizeExecute - это метод, который выполняет распознавание речи для голосового сообщения с помощью API Salute, используя идентификатор файла запроса (request_file_id) для обработки голосового сообщения и возвращая идентификатор распознавания (recognize_id) для дальнейшей обработки.
+// recognizeExecute - это метод, который выполняет распознавание речи для голосового сообщения
+// с помощью API Salute, используя идентификатор файла запроса (request_file_id)
+// для обработки голосового сообщения и возвращая идентификатор распознавания (recognize_id) для дальнейшей обработки.
 func (w *Worker) recognizeExecute(recognize models.RecognizeData) (string, error) {
-	// Получение токена доступа для API Salute перед распознаванием речи для голосового сообщения с помощью API Salute, с помощью метода getTokenSalute() для дальнейшего использования при взаимодействии с API Salute.
+	// Получение токена доступа для API Salute перед распознаванием речи для голосового сообщения
+	// с помощью API Salute, с помощью метода getTokenSalute() для дальнейшего использования при взаимодействии с API Salute.
 	w.getTokenSalute()
 	requestBody := models.RecognizeRequest{
 		Options: models.RecognizeRequestOptions{
@@ -63,8 +66,11 @@ func (w *Worker) recognizeExecute(recognize models.RecognizeData) (string, error
 		return "", err
 	}
 
-	// Получение идентификатора распознавания (recognize_id) для данного голосового сообщения с помощью API Salute. Если при распознавании речи произошла ошибка, то возвращаем ошибку, иначе возвращаем идентификатор распознавания (recognize_id) для дальнейшей обработки.
-	req, err := http.NewRequest(http.MethodPost, w.cfg.SmartSpeechURL+"/speech:async_recognize", bytes.NewBuffer(jsonBody))
+	// Получение идентификатора распознавания (recognize_id) для данного голосового сообщения с помощью API Salute.
+	// Если при распознавании речи произошла ошибка, то возвращаем ошибку,
+	// иначе возвращаем идентификатор распознавания (recognize_id) для дальнейшей обработки.
+	url := fmt.Sprintf("%s/%s", w.cfg.SmartSpeechURL, "speech:async_recognize")
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return "", err
 	}
@@ -89,11 +95,16 @@ func (w *Worker) recognizeExecute(recognize models.RecognizeData) (string, error
 	return response.Result.ID, nil
 }
 
-// checkStatusExecute - это метод, который выполняет проверку статуса обработки голосового сообщения в Salute, используя идентификатор распознавания (recognize_id) для получения статуса обработки и возвращая идентификатор файла с результатом распознавания (resp_file_id) для дальнейшей обработки, если статус обработки "DONE", или ошибку, если статус обработки еще не "DONE" или произошла ошибка при проверке статуса.
+// checkStatusExecute - это метод, который выполняет проверку статуса обработки голосового сообщения в Salute,
+// используя идентификатор распознавания (recognize_id) для получения статуса обработки
+// и возвращая идентификатор файла с результатом распознавания (resp_file_id) для дальнейшей обработки,
+// если статус обработки "DONE", или ошибку, если статус обработки еще не "DONE" или произошла ошибка при проверке статуса.
 func (w *Worker) checkStatusExecute(checkStatus models.CheckStatusData) (string, error) {
+	// Обновляем токен.
 	w.getTokenSalute()
-
-	// Получение статуса обработки голосового сообщения в Salute с помощью API Salute. Если статус обработки еще не "DONE", то возвращаем ошибку, иначе возвращаем идентификатор файла с результатом распознавания (resp_file_id) для дальнейшей обработки.
+	// Получение статуса обработки голосового сообщения в Salute с помощью API Salute.
+	// Если статус обработки еще не "DONE", то возвращаем ошибку,
+	// иначе возвращаем идентификатор файла с результатом распознавания (resp_file_id) для дальнейшей обработки.
 	url := fmt.Sprintf("%s/task:get?id=%s", w.cfg.SmartSpeechURL, checkStatus.RecognizeID)
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -123,10 +134,13 @@ func (w *Worker) checkStatusExecute(checkStatus models.CheckStatusData) (string,
 
 // downloadTranscriptionExecute - это метод, который выполняет загрузку расшифровки текста для голосового сообщения, которое было успешно обработано в Salute, используя идентификатор файла с результатом распознавания (resp_file_id) для получения расшифровки текста и возвращая текст расшифровки для данного голосового сообщения, если запрос выполнен успешно, или ошибку, если при загрузке расшифровки текста произошла ошибка.
 func (w *Worker) downloadTranscriptionExecute(download models.DownloadTranscriptionData) (string, error) {
-	// Получение токена доступа для API Salute перед загрузкой расшифровки текста для голосового сообщения, которое было успешно обработано в Salute, с помощью метода getTokenSalute() для дальнейшего использования при взаимодействии с API Salute.
+	// Получение токена доступа для API Salute перед загрузкой расшифровки текста для голосового сообщения,
+	// которое было успешно обработано в Salute, с помощью метода getTokenSalute() для дальнейшего использования при взаимодействии с API Salute.
 	w.getTokenSalute()
 
-	// Получение расшифровки текста для голосового сообщения, которое было успешно обработано в Salute, с помощью API Salute. Если статус обработки еще не "DONE", то продолжаем ожидать, иначе возвращаем текст расшифровки для данного голосового сообщения.
+	// Получение расшифровки текста для голосового сообщения, которое было успешно обработано в Salute, с помощью API Salute.
+	// Если статус обработки еще не "DONE", то продолжаем ожидать,
+	// иначе возвращаем текст расшифровки для данного голосового сообщения.
 	url := fmt.Sprintf("%s/data:download?response_file_id=%s", w.cfg.SmartSpeechURL, download.RespFileID)
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -153,7 +167,9 @@ func (w *Worker) downloadTranscriptionExecute(download models.DownloadTranscript
 		return "", fmt.Errorf("empty response from download endpoint")
 	}
 
-	// Проход по каждому элементу в ответе от API Salute и объединение текста расшифровки для данного голосового сообщения, возвращая текст расшифровки для данного голосового сообщения, если запрос выполнен успешно, или ошибку, если при загрузке расшифровки текста произошла ошибка.
+	// Проход по каждому элементу в ответе от API Salute и объединение текста расшифровки
+	// для данного голосового сообщения, возвращая текст расшифровки для данного голосового сообщения,
+	// если запрос выполнен успешно, или ошибку, если при загрузке расшифровки текста произошла ошибка.
 	var text string
 	for i := range response {
 		for j := range response[i].Results {
@@ -167,7 +183,11 @@ func (w *Worker) downloadTranscriptionExecute(download models.DownloadTranscript
 	return text, nil
 }
 
-// createSummaryExecute - это метод, который выполняет создание краткого содержания для текста распознанной речи с помощью GigaChat, используя текст распознанной речи для создания запроса к API GigaChat и возвращая краткое содержание для данного текста распознанной речи, если запрос выполнен успешно, или ошибку, если при создании краткого содержания произошла ошибка.
+// createSummaryExecute - это метод, который выполняет создание краткого содержания
+// для текста распознанной речи с помощью GigaChat, используя текст распознанной речи
+// для создания запроса к API GigaChat и возвращая краткое содержание
+// для данного текста распознанной речи, если запрос выполнен успешно, или ошибку,
+// если при создании краткого содержания произошла ошибка.
 func (w *Worker) createSummaryExecute(summaryData models.CreateSummaryData) (string, error) {
 	content := fmt.Sprintf("сделай краткую выжимку из текста: %s\n результат должен быть информативным и без лишней воды", summaryData.Text)
 	requestBody := models.GigaChatRequest{
@@ -187,12 +207,14 @@ func (w *Worker) createSummaryExecute(summaryData models.CreateSummaryData) (str
 		return "", err
 	}
 
-	// Получение краткого содержания для текста распознанной речи с помощью API GigaChat. Если при создании краткого содержания произошла ошибка, то возвращаем ошибку, иначе возвращаем краткое содержание для данного текста распознанной речи.
-	req, err := http.NewRequest(http.MethodPost, w.cfg.GigaChatURL+"/api/v1/chat/completions", bytes.NewBuffer(jsonBody))
+	// Получение краткого содержания для текста распознанной речи с помощью API GigaChat.
+	// Если при создании краткого содержания произошла ошибка, то возвращаем ошибку,
+	// иначе возвращаем краткое содержание для данного текста распознанной речи.
+	url := fmt.Sprintf("%s/%s", w.cfg.GigaChatURL, "api/v1/chat/completions")
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return "", err
 	}
-
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Authorization", "Bearer "+w.authGigaChat.AccessToken)

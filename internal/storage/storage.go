@@ -18,40 +18,38 @@ type Storage struct {
 func New(db *sql.DB) *Storage {
 	return &Storage{db: db}
 }
+
+// Disable.
 func (s *Storage) SaveIncomingID(chatID int64) (int, error) {
 	var voiceID int
-	err := s.db.QueryRow(`
-		INSERT INTO voice_recognize (chat_id, process_step) 
-        VALUES ($1, $2)
-		RETURNING id
-	`, chatID, "REGISTER").Scan(&voiceID)
-	return voiceID, err
+	// err := s.db.QueryRow(`
+	// 	INSERT INTO voice_recognize (chat_id, process_step)
+	//     VALUES ($1, $2)
+	// 	RETURNING id
+	// `, chatID, "REGISTER").Scan(&voiceID)
+	return voiceID, nil
 }
 
 // SaveIncomingVoice - это метод, который сохраняет входящее голосовое сообщение в базе данных и
 // возвращает его идентификатор (voiceID) для дальнейшей обработки.
-func (s *Storage) SaveIncomingVoice(voiceBytes []byte, chatID int64) (int, error) {
+func (s *Storage) SaveIncomingVoice(voiceBytes []byte, formatAudio string, chatID int64) (int, error) {
 	var voiceID int
-
+	// err := s.db.QueryRow(`
+	// 	SELECT id
+	// 	FROM voice_recognize
+	// 	WHERE process_step = $1 AND chat_id = $2;
+	// `, "REGISTER", chatID).Scan(&voiceID)
+	// if _, err := s.db.Exec(`
+	// 	UPDATE voice_recognize SET voice_data = $1, process_step = $2 WHERE id = $3;
+	// `, voiceBytes, "BEGIN", voiceID); err != nil {
+	// 	logrus.Info("storage.SaveIncomingVoice: update voice")
+	// }
 	err := s.db.QueryRow(`
-		SELECT id
-		FROM voice_recognize
-		WHERE process_step = $1 AND chat_id = $2;
-	`, "REGISTER", chatID).Scan(&voiceID)
-
-	if _, err := s.db.Exec(`
-		UPDATE voice_recognize SET voice_data = $1, process_step = $2 WHERE id = $3;
-	`, voiceBytes, "BEGIN", voiceID); err != nil {
-		err := s.db.QueryRow(`
-			INSERT INTO voice_recognize (voice_data, chat_id, process_step) 
-			VALUES ($1, $2, $3)
+			INSERT INTO voice_recognize (voice_data, format, chat_id, process_step) 
+			VALUES ($1, $2, $3, $4)
 			RETURNING id;
-		`, voiceBytes, chatID, "BEGIN").Scan(&voiceID)
-		logrus.Info("storage.SaveIncomingVoice: insert voice ID with voice data")
-		return voiceID, err
-	}
-
-	logrus.Info("storage.SaveIncomingVoice: update voice")
+		`, voiceBytes, formatAudio, chatID, "BEGIN").Scan(&voiceID)
+	logrus.Info("storage.SaveIncomingVoice: insert voice ID with voice data")
 	return voiceID, err
 }
 
@@ -70,7 +68,6 @@ func (s *Storage) GetVoiceForUpload() ([]models.UploadData, error) {
 	defer rows.Close()
 
 	var uploadDataList []models.UploadData
-
 	// Проход по результатам запроса и заполнение списка uploadDataList данными для загрузки в Salute для распознавания речи.
 	for rows.Next() {
 		var uploadData models.UploadData
@@ -80,7 +77,6 @@ func (s *Storage) GetVoiceForUpload() ([]models.UploadData, error) {
 		}
 		uploadDataList = append(uploadDataList, uploadData)
 	}
-
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
@@ -105,7 +101,6 @@ func (s *Storage) GetVoiceForRecognize() ([]models.RecognizeData, error) {
 	defer rows.Close()
 
 	var recognizeDataList []models.RecognizeData
-
 	// Проход по результатам запроса и заполнение списка recognizeDataList данными для распознавания речи.
 	for rows.Next() {
 		var recognizeData models.RecognizeData
@@ -115,11 +110,9 @@ func (s *Storage) GetVoiceForRecognize() ([]models.RecognizeData, error) {
 		}
 		recognizeDataList = append(recognizeDataList, recognizeData)
 	}
-
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
-
 	return recognizeDataList, nil
 }
 
@@ -135,7 +128,6 @@ func (s *Storage) GetVoiceForCheckStatus() ([]models.CheckStatusData, error) {
 	defer rows.Close()
 
 	var checkStatusList []models.CheckStatusData
-
 	for rows.Next() {
 		var checkStatusData models.CheckStatusData
 		err := rows.Scan(&checkStatusData.VoiceID, &checkStatusData.ChatID, &checkStatusData.RecognizeID)
@@ -144,11 +136,9 @@ func (s *Storage) GetVoiceForCheckStatus() ([]models.CheckStatusData, error) {
 		}
 		checkStatusList = append(checkStatusList, checkStatusData)
 	}
-
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
-
 	return checkStatusList, nil
 }
 
@@ -164,7 +154,6 @@ func (s *Storage) GetVoiceForDownloadTranscription() ([]models.DownloadTranscrip
 	defer rows.Close()
 
 	var downloadTranscriptionList []models.DownloadTranscriptionData
-
 	for rows.Next() {
 		var downloadTranscription models.DownloadTranscriptionData
 		err := rows.Scan(&downloadTranscription.VoiceID, &downloadTranscription.ChatID, &downloadTranscription.RespFileID)
@@ -173,11 +162,9 @@ func (s *Storage) GetVoiceForDownloadTranscription() ([]models.DownloadTranscrip
 		}
 		downloadTranscriptionList = append(downloadTranscriptionList, downloadTranscription)
 	}
-
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
-
 	return downloadTranscriptionList, nil
 }
 
@@ -193,7 +180,6 @@ func (s *Storage) GetVoiceForCreateSummary() ([]models.CreateSummaryData, error)
 	defer rows.Close()
 
 	var createSummaryList []models.CreateSummaryData
-
 	for rows.Next() {
 		var createSummaryData models.CreateSummaryData
 		err := rows.Scan(&createSummaryData.VoiceID, &createSummaryData.ChatID, &createSummaryData.Text)
@@ -202,11 +188,9 @@ func (s *Storage) GetVoiceForCreateSummary() ([]models.CreateSummaryData, error)
 		}
 		createSummaryList = append(createSummaryList, createSummaryData)
 	}
-
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
-
 	return createSummaryList, nil
 }
 
@@ -218,7 +202,41 @@ func (s *Storage) GetSummaryByID(voiceID, chatID int64) (string, error) {
 		WHERE id = $1 AND chat_id = $2
 	`, voiceID, chatID).Scan(&summary)
 	if err != nil {
+		logrus.Error("storage.GetSummaryByID", err.Error(), "summary:", summary)
 		return "", err
 	}
 	return summary, nil
+}
+
+func (s *Storage) GetListSummaryID(chatID int64) ([]int64, error) {
+	rows, err := s.db.Query(`
+		SELECT id
+		FROM voice_recognize
+		WHERE chat_id = $1
+		ORDER BY created_at	
+	`, chatID)
+	if err != nil {
+		logrus.Error("storage.GetListSummaryID", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	var IDs []int64
+	for rows.Next() {
+		var ID int64
+		err := rows.Scan(&ID)
+		if err != nil {
+			logrus.Error("Storage.GetListSummaryID", err)
+			return nil, err
+		}
+		IDs = append(IDs, ID)
+	}
+	if err = rows.Err(); err != nil {
+		logrus.Error("Storage.GetListSummaryID", err)
+		return nil, err
+	}
+	if len(IDs) == 0 {
+		return IDs, sql.ErrNoRows
+	}
+	return IDs, nil
 }
