@@ -3,7 +3,6 @@ package service
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -51,6 +50,9 @@ func (w *Worker) recognizeExecute(recognize models.RecognizeData) (string, error
 	// Получение токена доступа для API Salute перед распознаванием речи для голосового сообщения
 	// с помощью API Salute, с помощью метода getTokenSalute() для дальнейшего использования при взаимодействии с API Salute.
 	w.getTokenSalute()
+
+	// Создание тела запроса для распознавания речи для голосового сообщения с помощью API Salute,
+	// используя идентификатор файла запроса (request_file_id) для создания тела запроса к API Salute.
 	requestBody := models.RecognizeRequest{
 		Options: models.RecognizeRequestOptions{
 			Model:         "general",
@@ -61,6 +63,10 @@ func (w *Worker) recognizeExecute(recognize models.RecognizeData) (string, error
 		RequestFileID: recognize.ReqFileID,
 	}
 
+	// Преобразование тела запроса для распознавания речи для голосового сообщения в формат JSON
+	// для отправки запроса к API Salute, возвращая ошибку,
+	// если при преобразовании тела запроса произошла ошибка, или JSON-форматированное тело запроса
+	// для распознавания речи для голосового сообщения, если преобразование прошло успешно.
 	jsonBody, err := json.Marshal(requestBody)
 	if err != nil {
 		return "", err
@@ -77,16 +83,26 @@ func (w *Worker) recognizeExecute(recognize models.RecognizeData) (string, error
 	req.Header.Set("Authorization", "Bearer "+w.authSalute.AccessToken)
 	req.Header.Set("Content-Type", "application/json")
 
+	// Получаем ответ от API Salute и обрабатываем его, возвращая идентификатор распознавания (recognize_id)
+	// для данного голосового сообщения, если запрос выполнен успешно, или ошибку,
+	// если при распознавании речи произошла ошибка.
 	resp, err := w.client.Do(req)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
 
+	// Проверяем статус ответа от API Salute, если статус не 200 OK, то возвращаем ошибку,
+	// иначе обрабатываем ответ от API Salute и возвращаем идентификатор распознавания (recognize_id)
+	// для данного голосового сообщения, если запрос выполнен успешно, или ошибку,
+	// если при распознавании речи произошла ошибка.
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("recognize handler return status %d", resp.StatusCode)
 	}
 
+	// Проходим по каждому элементу в ответе от API Salute и объединяем текст расшифровки
+	// для данного голосового сообщения, возвращая текст расшифровки для данного голосового сообщения,
+	// если запрос выполнен успешно, или ошибку, если при загрузке расшифровки текста произошла ошибка.
 	response := models.RecognizeResponse{}
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		return "", err
@@ -127,12 +143,15 @@ func (w *Worker) checkStatusExecute(checkStatus models.CheckStatusData) (string,
 		return "", err
 	}
 	if response.Result.Status != "DONE" {
-		return "", errors.New("status not DONE yet")
+		return "", fmt.Errorf("meeting processed yet") // errors.New("status not DONE yet")
 	}
 	return response.Result.ResponseFileID, nil
 }
 
-// downloadTranscriptionExecute - это метод, который выполняет загрузку расшифровки текста для голосового сообщения, которое было успешно обработано в Salute, используя идентификатор файла с результатом распознавания (resp_file_id) для получения расшифровки текста и возвращая текст расшифровки для данного голосового сообщения, если запрос выполнен успешно, или ошибку, если при загрузке расшифровки текста произошла ошибка.
+// downloadTranscriptionExecute - это метод, который выполняет загрузку расшифровки текста
+// для голосового сообщения, которое было успешно обработано в Salute, используя идентификатор файла
+// с результатом распознавания (resp_file_id) для получения расшифровки текста и возвращая текст расшифровки
+// для данного голосового сообщения, если запрос выполнен успешно, или ошибку, если при загрузке расшифровки текста произошла ошибка.
 func (w *Worker) downloadTranscriptionExecute(download models.DownloadTranscriptionData) (string, error) {
 	// Получение токена доступа для API Salute перед загрузкой расшифровки текста для голосового сообщения,
 	// которое было успешно обработано в Salute, с помощью метода getTokenSalute() для дальнейшего использования при взаимодействии с API Salute.
@@ -188,66 +207,65 @@ func (w *Worker) downloadTranscriptionExecute(download models.DownloadTranscript
 // для создания запроса к API GigaChat и возвращая краткое содержание
 // для данного текста распознанной речи, если запрос выполнен успешно, или ошибку,
 // если при создании краткого содержания произошла ошибка.
-func (w *Worker) createSummaryExecute(summaryData models.CreateSummaryData) (string, error) {
-	content := fmt.Sprintf("сделай краткую выжимку из текста: %s\n результат должен быть информативным и без лишней воды", summaryData.Text)
-	requestBody := models.GigaChatRequest{
-		Model:             "GigaChat",
-		Stream:            false,
-		RepetitionPenalty: 1,
-		Messages: []models.Message{
-			{
-				Role:    "user",
-				Content: content,
-			},
-		},
-	}
+// func (w *Worker) createSummaryExecute(content string) (string, error) {
+// 	requestBody := models.GigaChatRequest{
+// 		Model:             "GigaChat",
+// 		Stream:            false,
+// 		RepetitionPenalty: 1,
+// 		Messages: []models.Message{
+// 			{
+// 				Role:    "user",
+// 				Content: content,
+// 			},
+// 		},
+// 	}
+// 	jsonBody, err := json.Marshal(requestBody)
+// 	if err != nil {
+// 		return "", err
+// 	}
+// 	// Получение краткого содержания для текста распознанной речи с помощью API GigaChat.
+// 	// Если при создании краткого содержания произошла ошибка, то возвращаем ошибку,
+// 	// иначе возвращаем краткое содержание для данного текста распознанной речи.
+// 	url := fmt.Sprintf("%s/%s", w.cfg.GigaChatURL, "api/v1/chat/completions")
+// 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonBody))
+// 	if err != nil {
+// 		return "", err
+// 	}
+// 	req.Header.Set("Content-Type", "application/json")
+// 	req.Header.Set("Accept", "application/json")
+// 	req.Header.Set("Authorization", "Bearer "+w.authGigaChat.AccessToken)
+// 	resp, err := w.client.Do(req)
+// 	if err != nil {
+// 		return "", err
+// 	}
+// 	defer resp.Body.Close()
+// 	if resp.StatusCode != http.StatusOK {
+// 		return "", fmt.Errorf("create summary handler return status %d", resp.StatusCode)
+// 	}
+// 	response := models.GigaChatResponse{}
+// 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+// 		return "", err
+// 	}
+// 	if len(response.Choices) < 1 {
+// 		return "", fmt.Errorf("create summary handler return status empty response")
+// 	}
+// 	var summary string
+// 	for i := range response.Choices {
+// 		summary += response.Choices[i].Message.Content
+// 	}
+// 	return summary, nil
+// }
 
-	jsonBody, err := json.Marshal(requestBody)
-	if err != nil {
-		return "", err
-	}
-
-	// Получение краткого содержания для текста распознанной речи с помощью API GigaChat.
-	// Если при создании краткого содержания произошла ошибка, то возвращаем ошибку,
-	// иначе возвращаем краткое содержание для данного текста распознанной речи.
-	url := fmt.Sprintf("%s/%s", w.cfg.GigaChatURL, "api/v1/chat/completions")
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonBody))
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Authorization", "Bearer "+w.authGigaChat.AccessToken)
-
-	resp, err := w.client.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("create summary handler return status %d", resp.StatusCode)
-	}
-
-	response := models.GigaChatResponse{}
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		return "", err
-	}
-	if len(response.Choices) < 1 {
-		return "", fmt.Errorf("create summary handler return status empty response")
-	}
-	var summary string
-	for i := range response.Choices {
-		summary += response.Choices[i].Message.Content
-	}
-
-	return summary, nil
-}
-
+// QuestionGigaChat - это метод, который выполняет отправку вопроса в GigaChat
+// и получение ответа на этот вопрос, используя текст вопроса для создания запроса к API GigaChat
+// и возвращая ответ на этот вопрос, если запрос выполнен успешно, или ошибку,
+// если при отправке вопроса в GigaChat произошла ошибка.
 func (w *Worker) QuestionGigaChat(question string) (string, error) {
-	// Update token
+	// Обновляем token
 	w.getTokenGigaChat()
 
+	// Создаем тело запроса для отправки вопроса в GigaChat, используя текст вопроса
+	// для создания тела запроса к API GigaChat.
 	requestBody := models.GigaChatRequest{
 		Model:             "GigaChat",
 		Stream:            false,
@@ -259,31 +277,41 @@ func (w *Worker) QuestionGigaChat(question string) (string, error) {
 			},
 		},
 	}
-
 	jsonBody, err := json.Marshal(requestBody)
 	if err != nil {
 		return "", err
 	}
 
-	req, err := http.NewRequest("POST", w.cfg.GigaChatURL+"/api/v1/chat/completions", bytes.NewBuffer(jsonBody))
+	// Отправляем запрос в GigaChat и получаем ответ на этот вопрос с помощью API GigaChat.
+	// Если при отправке вопроса в GigaChat произошла ошибка, то возвращаем ошибку,
+	// иначе возвращаем ответ на этот вопрос для данного текста вопроса.
+	url := fmt.Sprintf("%s/%s", w.cfg.GigaChatURL, "api/v1/chat/completions")
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return "", err
 	}
-
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Authorization", "Bearer "+w.authGigaChat.AccessToken)
 
+	// Получаем ответ от GigaChat и обрабатываем его, возвращая ответ на этот вопрос
+	// для данного текста вопроса, если запрос выполнен успешно, или ошибку,
+	// если при отправке вопроса в GigaChat произошла ошибка.
 	resp, err := w.client.Do(req)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
 
+	// Проверяем статус ответа от GigaChat, если статус не 200 OK, то возвращаем ошибку,
+	// иначе обрабатываем ответ от GigaChat и возвращаем ответ на этот вопрос для данного текста вопроса.
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("create summary handler return status %d", resp.StatusCode)
 	}
 
+	// Проходим по каждому элементу в ответе от GigaChat и объединяем текст ответа на этот вопрос
+	// для данного текста вопроса, возвращая ответ на этот вопрос для данного текста вопроса,
+	// если запрос выполнен успешно, или ошибку, если при отправке вопроса в GigaChat произошла ошибка.
 	response := models.GigaChatResponse{}
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		return "", err
@@ -291,6 +319,9 @@ func (w *Worker) QuestionGigaChat(question string) (string, error) {
 	if len(response.Choices) < 1 {
 		return "", fmt.Errorf("create summary handler return status empty response")
 	}
+	// Проходим по каждому элементу в ответе от GigaChat и объединяем текст ответа на этот вопрос
+	// для данного текста вопроса, возвращая ответ на этот вопрос для данного текста вопроса,
+	// если запрос выполнен успешно, или ошибку, если при отправке вопроса в GigaChat произошла ошибка.
 	var answer string
 	for i := range response.Choices {
 		answer += response.Choices[i].Message.Content

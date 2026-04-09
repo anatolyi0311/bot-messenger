@@ -1,3 +1,5 @@
+// Package main - это основной пакет, который инициализирует конфигурацию, базу данных, хранилище 
+// и запускает бота для обработки голосовых сообщений и взаимодействия с пользователями.
 package main
 
 import (
@@ -19,13 +21,13 @@ func main() {
 	// Загрузка конфигурации
 	cfg := config.LoadConfig()
 
-	// Инициализация БД
+	// Инициализация базы данных PostgreSQL
 	dbPostgres, err := db.InitPostgresDB(&cfg.Postgres)
 	if err != nil {
 		logrus.Fatalln(err)
 	}
 
-	// Выполнение миграций
+	// Выполнение миграций для создания необходимых таблиц в базе данных
 	err = migrations.Up(dbPostgres)
 	if err != nil {
 		logrus.Fatalln(err)
@@ -35,7 +37,7 @@ func main() {
 		logrus.Info("Migrations down")
 	}()
 
-	// Инициализация хранилища
+	// Инициализация хранилища для взаимодействия с базой данных
 	store := storage.New(dbPostgres)
 
 	// Создание контекста для управления жизненным циклом бота
@@ -46,7 +48,7 @@ func main() {
 	bot := bot.New(cfg, store)
 	bot.Route()
 
-	// Запуск бота в отдельной горутине
+	// Запуск бота в отдельной горутине для обработки сообщений
 	go func() {
 		logrus.Info("Starting bot...")
 		bot.Start(ctx)
@@ -57,7 +59,7 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	<-quit
 	logrus.Info("Shutting down gracefully...")
-
+	// Отмена контекста для остановки бота
 	cancel()
 
 	// Даем боту время завершить обработку текущих сообщений
